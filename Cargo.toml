@@ -1,0 +1,11 @@
+[package]
+name = "Rust-Jiyu-Killer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+base64 = "0.22.1"
+check_elevation = "0.2.4"
+runas = "1.2.0"
+winapi = {version = "0.3.9",features = ["winuser","libloaderapi"]}
+
