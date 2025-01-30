@@ -62,6 +62,7 @@ unsafe extern "system" fn hook_proc(code: i32, w_param: winapi::shared::minwinde
 }
 
 fn fk_jiyu_keyboardhook() -> Result<(), String>{  // 除了 ctrl+alt+del
+    // https://blog.csdn.net/weixin_42112038/article/details/126228989
     unsafe {
         let module_handle = GetModuleHandleA(null_mut());
         let hook = SetWindowsHookExA(WH_KEYBOARD_LL, Some(hook_proc), module_handle, 0);
