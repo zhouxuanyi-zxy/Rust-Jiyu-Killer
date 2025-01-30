@@ -9,11 +9,13 @@ use std::os::windows::ffi::OsStrExt;
 use std::ptr::null_mut;
 use winapi::um::winuser::{FindWindowW, ShowWindow, SW_MINIMIZE,UnhookWindowsHookEx, SetWindowsHookExA, WH_KEYBOARD_LL, CallNextHookEx};
 use check_elevation::is_elevated;
+use winreg::enums::HKEY_LOCAL_MACHINE;
 use std::thread::sleep;
 use std::time::Duration;
 use std::thread;
 use winapi::shared::minwindef::FALSE;
 use winapi::um::libloaderapi::GetModuleHandleA;
+use winreg::RegKey;
 
 fn to_wstring(str: &str) -> Vec<u16> {
     OsStr::new(str).encode_wide().chain(once(0)).collect()
@@ -78,6 +80,26 @@ fn fk_jiyu_keyboardhook() -> Result<(), String>{  // 除了 ctrl+alt+del
     }
 }
 
+fn get_jiyu_path() -> io::Result<String> {
+    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+    let mut t1 = hklm.open_subkey(r"SOFTWARE\WOW6432Node\TopDomain\e-Learning Class V6.0"); // jiyu
+    match t1 {
+        Ok(_) => {}
+        Err(e) => {
+            t1 = hklm.open_subkey(r"SOFTWARE\TopDomain\e-Learning Class Standard\1.00"); // nanruan
+            match t1 {
+                Ok(_) => {}
+                Err(e) => {
+                    println!("Fail to get jiyu path");
+                    return Err(e);
+                }
+            }
+        }
+    }
+    let jiyu_path: String = t1.unwrap().get_value("TargetDirectory")?;
+    println!("{}",jiyu_path);
+    return Ok(jiyu_path);
+}
 fn main() {
     let now_path_exe = env::current_exe().unwrap().display().to_string();
     let now_dir = env::current_dir().unwrap().display().to_string();
@@ -132,7 +154,6 @@ fn main() {
             }
         }
     });
-
     minimize_screen1.join().unwrap();
     minimize_screen2.join().unwrap();
     fkkbhook.join().unwrap();
