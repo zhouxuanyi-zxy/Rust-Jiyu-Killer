@@ -2,12 +2,12 @@ mod extract_files;
 
 extern crate winapi;
 
-use std::{env,io};
+use std::{env, fs, io};
 use std::{ffi::OsStr, process::Command};
 use std::iter::once;
 use std::os::windows::ffi::OsStrExt;
 use std::ptr::null_mut;
-use winapi::um::winuser::{FindWindowW, ShowWindow, SW_MINIMIZE,UnhookWindowsHookEx, SetWindowsHookExA, WH_KEYBOARD_LL, CallNextHookEx};
+use winapi::um::winuser::{FindWindowW, ShowWindow, SW_MINIMIZE,UnhookWindowsHookEx, SetWindowsHookExA, WH_KEYBOARD_LL};
 use check_elevation::is_elevated;
 use winreg::enums::HKEY_LOCAL_MACHINE;
 use std::thread::sleep;
@@ -40,26 +40,26 @@ fn minimize_window(window_title: &str) -> Result<(), String> {
 
 fn run_killer(name: String,rename: String){
     if name == "pskill"{
-        let run = Command::new(rename)
+        let _run = Command::new(rename)
         .args(vec!["-t","-nobanner","StudentMain.exe"])
         .output()
         .expect("Err");
     }
     else if name == "pssuspend" {
-        let run = Command::new(rename)
+        let _run = Command::new(rename)
         .args(vec!["-nobanner","StudentMain.exe"])
         .output()
         .expect("Err");
     }
     else if name == "ntsd" {
-        let run = Command::new(rename)
+        let _run = Command::new(rename)
         .args(vec!["-c","q","-pn","StudentMain.exe"])
         .output()
         .expect("Err");
     }
 }
 
-unsafe extern "system" fn hook_proc(code: i32, w_param: winapi::shared::minwindef::WPARAM, l_param: winapi::shared::minwindef::LPARAM) -> winapi::shared::minwindef::LRESULT {
+unsafe extern "system" fn hook_proc(_code: i32, _w_param: winapi::shared::minwindef::WPARAM, _l_param: winapi::shared::minwindef::LPARAM) -> winapi::shared::minwindef::LRESULT {
     return FALSE.try_into().unwrap();
 }
 
@@ -85,7 +85,7 @@ fn get_jiyu_path() -> io::Result<String> {
     let mut t1 = hklm.open_subkey(r"SOFTWARE\WOW6432Node\TopDomain\e-Learning Class V6.0"); // jiyu
     match t1 {
         Ok(_) => {}
-        Err(e) => {
+        Err(_) => {
             t1 = hklm.open_subkey(r"SOFTWARE\TopDomain\e-Learning Class Standard\1.00"); // nanruan
             match t1 {
                 Ok(_) => {}
@@ -96,9 +96,38 @@ fn get_jiyu_path() -> io::Result<String> {
             }
         }
     }
-    let jiyu_path: String = t1.unwrap().get_value("TargetDirectory")?;
+    let jiyu_path: String = t1.as_ref().unwrap().get_value("TargetDirectory")?;
+    let t3 = t1.as_ref().unwrap().set_value("SetupType", &"Teacher");
+    let t4 = t1.unwrap().delete_value("SetupType");
+    match t3 {
+        Ok(_) => {
+            println!("ok to change reg");
+        }
+        Err(e) => {
+            println!("error to change reg {}",e);
+        } 
+    }
+    match t4 {
+        Ok(_) => {
+            println!("ok to del reg");
+        }
+        Err(e) => {
+            println!("error to del reg {}",e);
+        } 
+    }
     println!("{}",jiyu_path);
     return Ok(jiyu_path);
+}
+
+fn rename_exchange20_dll(jiyu_path: &String){
+    match fs::rename(jiyu_path.to_owned()+&"eXchange20.dll".to_string(), jiyu_path.to_owned()+&"eXchange20.dll.1".to_string()){
+        Ok(_) => {
+            println!("ok to rename eXchange20.dll");
+        }
+        Err(e) => {
+            println!("Err to rename eXchange20.dll: {}",e);
+        }
+    }
 }
 fn main() {
     let now_path_exe = env::current_exe().unwrap().display().to_string();
@@ -107,12 +136,12 @@ fn main() {
     if !is_elevated().expect("Failed to get elevation status."){
         println!("本程序需要管理员权限运行,请在接下来弹出的窗口中点击是");
         sleep(Duration::from_secs(2));
-        let status = runas::Command::new(now_path_exe)
+        let _status = runas::Command::new(now_path_exe)
         .status()
         .unwrap();
         return;
     }
-    sleep(Duration::from_secs(10));
+    sleep(Duration::from_secs(2));
     let minimize_screen1: thread::JoinHandle<()> = thread::spawn(||{
         loop {
             let run_minimize_screen1 = minimize_window("屏幕广播");
@@ -154,6 +183,18 @@ fn main() {
             }
         }
     });
+    let jiyu_path_1 = get_jiyu_path();
+    let mut jiyu_path = String::new();
+    match jiyu_path_1 {
+        Ok(o) => {
+            jiyu_path = o;
+        }
+        Err(e) => {
+            println!("Err {}",e);
+            jiyu_path = r"c:\Program Files (x86)\Mythware\极域课堂管理系统软件V6.0 2016 豪华版\".to_string(); // 默认
+        }
+    }
+    rename_exchange20_dll(&jiyu_path);
     minimize_screen1.join().unwrap();
     minimize_screen2.join().unwrap();
     fkkbhook.join().unwrap();
