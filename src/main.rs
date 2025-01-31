@@ -97,22 +97,18 @@ fn get_jiyu_path() -> io::Result<String> {
         }
     }
     let jiyu_path: String = t1.as_ref().unwrap().get_value("TargetDirectory")?;
-    let t3 = t1.as_ref().unwrap().set_value("SetupType", &"Teacher");
-    let t4 = t1.unwrap().delete_value("SetupType");
+    let t3 = t1.as_ref().unwrap().set_value("SetupType", &"Teacher"); // method 1
     match t3 {
         Ok(_) => {
             println!("ok to change reg");
         }
         Err(e) => {
-            println!("error to change reg {}",e);
-        } 
-    }
-    match t4 {
-        Ok(_) => {
-            println!("ok to del reg");
-        }
-        Err(e) => {
-            println!("error to del reg {}",e);
+            println!("Error to change reg {} (use winreg)",e);
+            let _run = Command::new(r"C:\Windows\System32\reg.exe") // method 2
+            .args(vec!["add",r#"HKLM\SOFTWARE\WOW6432Node\TopDomain\e-Learning Class V6.0\"#,r"/v","SetupType",
+            r"/t","REG_SZ",r"/d","Teacher",r"/f"])
+            .output()
+            .expect("Err (5)");
         } 
     }
     println!("{}",jiyu_path);
@@ -174,9 +170,7 @@ fn main() {
         loop {
             let run_fkkbhook = fk_jiyu_keyboardhook();
             match run_fkkbhook {
-                Ok(_) => {
-                    println!("Success to hook");
-                }
+                Ok(_) => { }
                 Err(e) => {
                     println!("Err!{}-hook",e);
                 }
