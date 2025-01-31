@@ -7,7 +7,9 @@ use std::{ffi::OsStr, process::Command};
 use std::iter::once;
 use std::os::windows::ffi::OsStrExt;
 use std::ptr::null_mut;
-use winapi::um::winuser::{FindWindowW, ShowWindow, SW_MINIMIZE,UnhookWindowsHookEx, SetWindowsHookExA, WH_KEYBOARD_LL};
+use winapi::shared::windef::{HWND, RECT};
+use winapi::um::winuser::{FindWindowW, GetMonitorInfoW, GetSystemMetrics, GetWindowRect, MonitorFromWindow, SetWindowsHookExA, ShowWindow, UnhookWindowsHookEx, SM_CXSCREEN, SM_CYSCREEN, SW_MINIMIZE, WH_KEYBOARD_LL};
+use winapi::um::winuser::{MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use check_elevation::is_elevated;
 use winreg::enums::HKEY_LOCAL_MACHINE;
 use std::thread::sleep;
@@ -21,7 +23,23 @@ fn to_wstring(str: &str) -> Vec<u16> {
     OsStr::new(str).encode_wide().chain(once(0)).collect()
 }
 
-fn minimize_window(window_title: &str) -> Result<(), String> {
+fn is_window_fullscreen(hwnd: HWND) -> bool {
+    unsafe {
+        let mut rect: RECT = std::mem::zeroed();
+        if GetWindowRect(hwnd, &mut rect) == 0 {
+            return false;
+        }
+        let screen_width = GetSystemMetrics(SM_CXSCREEN);
+        let screen_height = GetSystemMetrics(SM_CYSCREEN);
+        const TOLERANCE: i32 = 1;
+        rect.left <= TOLERANCE &&
+        rect.top <= TOLERANCE &&
+        rect.right >= screen_width - TOLERANCE &&
+        rect.bottom >= screen_height - TOLERANCE
+    }
+}
+
+fn minimize_window(window_title: &str,have_been: &bool) -> Result<(), String> {
     let window_title = to_wstring(window_title);
     let hwnd = unsafe { 
         FindWindowW(null_mut(), window_title.as_ptr())
@@ -29,11 +47,23 @@ fn minimize_window(window_title: &str) -> Result<(), String> {
     if hwnd.is_null() {
         return Err("Window not found".to_string());
     }
-    let result = unsafe { 
-        ShowWindow(hwnd, SW_MINIMIZE) 
-    };
-    if result == 0 {
-        return Err("Failed to minimize window".to_string());
+    if is_window_fullscreen(hwnd){
+        println!("Window is fullscreen");
+        if *have_been {
+            // 鉴定为紧急全屏模式
+            println!("Waiting for 11.4s");
+            sleep(Duration::from_secs_f64(11.4));
+        }
+        let result = unsafe { 
+            ShowWindow(hwnd, SW_MINIMIZE) 
+        };
+        if result == 0 {
+            return Err("Failed to minimize window".to_string());
+        }
+    }
+    else {
+        println!("Pass-{:?}",window_title);
+        return Err("Window is not fullscreen".to_string());
     }
     Ok(())
 }
@@ -139,31 +169,36 @@ fn main() {
     }
     sleep(Duration::from_secs(2));
     let minimize_screen1: thread::JoinHandle<()> = thread::spawn(||{
+        let mut flag1 = false;
         loop {
-            let run_minimize_screen1 = minimize_window("屏幕广播");
+            let run_minimize_screen1 = minimize_window("屏幕广播",&flag1);
+            
             match run_minimize_screen1 {
                 Ok(_) => {
                     println!("Success-1");
+                    flag1 = true;
                 }
                 Err(e) => {
                     println!("Err!{}-1",e);
                 }
             }
-            sleep(Duration::from_secs(2));
+            sleep(Duration::from_secs(5));
         }
     });
     let minimize_screen2: thread::JoinHandle<()> = thread::spawn(||{
+        let mut flag1 = false;
         loop {
-            let run_minimize_screen2 = minimize_window("BlackScreen Window");
+            let run_minimize_screen2 = minimize_window("BlackScreen Window",&flag1);
             match run_minimize_screen2 {
                 Ok(_) => {
                     println!("Success-2");
+                    flag1 = true;
                 }
                 Err(e) => {
                     println!("Err!{}-2",e);
                 }
             }
-            sleep(Duration::from_secs(2));
+            sleep(Duration::from_secs(5));
         }
     });
     let fkkbhook: thread::JoinHandle<()> = thread::spawn(||{
