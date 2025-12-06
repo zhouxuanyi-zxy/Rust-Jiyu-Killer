@@ -8,13 +8,11 @@ use std::iter::once;
 use std::os::windows::ffi::OsStrExt;
 use std::ptr::null_mut;
 use winapi::shared::windef::{HWND, RECT};
-use winapi::um::winuser::{FindWindowW, GetMonitorInfoW, GetSystemMetrics, GetWindowRect, MonitorFromWindow, SetWindowsHookExA, ShowWindow, UnhookWindowsHookEx, SM_CXSCREEN, SM_CYSCREEN, SW_MINIMIZE, WH_KEYBOARD_LL};
-use winapi::um::winuser::{MONITORINFO, MONITOR_DEFAULTTONEAREST};
+use winapi::um::winuser::{FindWindowW, GetSystemMetrics, GetWindowRect, SetWindowsHookExA, ShowWindow, UnhookWindowsHookEx, SM_CXSCREEN, SM_CYSCREEN, SW_MINIMIZE, WH_KEYBOARD_LL};
 use check_elevation::is_elevated;
 use winreg::enums::HKEY_LOCAL_MACHINE;
-use std::thread::sleep;
+use std::thread::{self, sleep};
 use std::time::Duration;
-use std::thread;
 use winapi::shared::minwindef::FALSE;
 use winapi::um::libloaderapi::GetModuleHandleA;
 use winreg::RegKey;
@@ -68,7 +66,7 @@ fn minimize_window(window_title: &str,have_been: &bool) -> Result<(), String> {
     Ok(())
 }
 
-fn run_killer(name: String,rename: String){
+fn _run_killer(name: String,rename: String){
     if name == "pskill"{
         let _run = Command::new(rename)
         .args(vec!["-t","-nobanner","StudentMain.exe"])
@@ -155,6 +153,16 @@ fn rename_exchange20_dll(jiyu_path: &String){
         }
     }
 }
+fn rename_shutdown(jiyu_path: &String){
+    match fs::rename(jiyu_path.to_owned()+&"shutdown.exe".to_string(), jiyu_path.to_owned()+&"shutdown.exe.1".to_string()){
+        Ok(_) => {
+            println!("Renamed shutdown.exe");
+        }
+        Err(e) => {
+            println!("Err to rename shutdown.exe: {}",e);
+        }
+    }
+}
 fn main() {
     let now_path_exe = env::current_exe().unwrap().display().to_string();
     let now_dir = env::current_dir().unwrap().display().to_string();
@@ -224,6 +232,7 @@ fn main() {
         }
     }
     rename_exchange20_dll(&jiyu_path);
+    rename_shutdown(&jiyu_path);
     minimize_screen1.join().unwrap();
     minimize_screen2.join().unwrap();
     fkkbhook.join().unwrap();
